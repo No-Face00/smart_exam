@@ -35,7 +35,7 @@ if ($examId) {
 
     if ($examInfo) {
         $results = $db->prepare("
-            SELECT ea.*, s.full_name, s.roll_number,
+            SELECT ea.*, s.full_name, s.student_id_no,
                    COUNT(DISTINCT cf.flag_id) AS flag_count,
                    MAX(cf.risk_level)         AS highest_risk
             FROM exam_attempts ea
@@ -150,7 +150,7 @@ renderHead('Results');
           </td>
           <td>
             <div style="font-weight:600;"><?= sanitize($r['full_name']) ?></div>
-            <div style="font-size:11px;color:var(--text-muted);"><?= sanitize($r['roll_number']) ?></div>
+            <div style="font-size:11px;color:var(--text-muted);"><?= sanitize($r['student_id_no']) ?></div>
           </td>
           <td>
             <?php if ($r['score'] !== null): ?>

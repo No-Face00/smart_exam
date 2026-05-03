@@ -35,7 +35,7 @@ if (!$exam) { header('Location: investigate.php'); exit; }
 
 // All students in this exam
 $students = $db->prepare("
-    SELECT s.student_id, s.full_name, s.roll_number, ea.attempt_id, ea.score, ea.time_taken_secs
+    SELECT s.student_id, s.full_name, s.student_id_no, ea.attempt_id, ea.score, ea.time_taken_secs
     FROM exam_attempts ea JOIN students s ON s.student_id = ea.student_id
     WHERE ea.exam_id = ? AND ea.status = 'submitted'
     ORDER BY s.full_name
@@ -179,7 +179,7 @@ renderHead('Answer Comparison');
         <select name="student_a" class="form-control" style="width:220px;">
           <?php foreach ($students as $s): ?>
           <option value="<?= $s['student_id'] ?>" <?= $studentA==$s['student_id']?'selected':'' ?>>
-            <?= sanitize($s['full_name']) ?> (<?= sanitize($s['roll_number']) ?>)
+            <?= sanitize($s['full_name']) ?> (<?= sanitize($s['student_id_no']) ?>)
           </option>
           <?php endforeach; ?>
         </select>
@@ -190,7 +190,7 @@ renderHead('Answer Comparison');
         <select name="student_b" class="form-control" style="width:220px;">
           <?php foreach ($students as $s): ?>
           <option value="<?= $s['student_id'] ?>" <?= $studentB==$s['student_id']?'selected':'' ?>>
-            <?= sanitize($s['full_name']) ?> (<?= sanitize($s['roll_number']) ?>)
+            <?= sanitize($s['full_name']) ?> (<?= sanitize($s['student_id_no']) ?>)
           </option>
           <?php endforeach; ?>
         </select>
@@ -236,7 +236,7 @@ renderHead('Answer Comparison');
       <?= strtoupper(substr($sA['full_name'],0,2)) ?>
     </div>
     <div style="font-weight:800;font-size:16px;"><?= sanitize($sA['full_name']) ?></div>
-    <div style="font-size:12px;color:var(--text-muted);"><?= sanitize($sA['roll_number']) ?></div>
+    <div style="font-size:12px;color:var(--text-muted);"><?= sanitize($sA['student_id_no']) ?></div>
     <div style="margin-top:8px;font-size:13px;">
       Score: <strong><?= round($attemptA['score'] ?? 0) ?>%</strong>
       &nbsp;·&nbsp;
@@ -250,7 +250,7 @@ renderHead('Answer Comparison');
       <?= strtoupper(substr($sB['full_name'],0,2)) ?>
     </div>
     <div style="font-weight:800;font-size:16px;"><?= sanitize($sB['full_name']) ?></div>
-    <div style="font-size:12px;color:var(--text-muted);"><?= sanitize($sB['roll_number']) ?></div>
+    <div style="font-size:12px;color:var(--text-muted);"><?= sanitize($sB['student_id_no']) ?></div>
     <div style="margin-top:8px;font-size:13px;">
       Score: <strong><?= round($attemptB['score'] ?? 0) ?>%</strong>
       &nbsp;·&nbsp;

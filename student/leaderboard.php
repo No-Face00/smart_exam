@@ -17,7 +17,7 @@ $filterDept = (int)get('dept', $deptId);
 
 $leaderboard = $db->prepare("
     SELECT
-      s.student_id, s.full_name, s.roll_number, d.dept_name,
+      s.student_id, s.full_name, s.student_id_no, d.dept_name,
       COUNT(ea.attempt_id)               AS exams_taken,
       SUM(ea.is_passed)                  AS exams_passed,
       ROUND(AVG(ea.score), 1)            AS avg_score,
@@ -120,7 +120,7 @@ renderHead('Leaderboard');
               </div>
               <div>
                 <div><?= sanitize($l['full_name']) ?> <?= $isMe ? '<span style="color:var(--brand);font-size:11px;">(You)</span>' : '' ?></div>
-                <div style="font-size:11px;color:var(--text-muted);"><?= sanitize($l['roll_number']) ?></div>
+                <div style="font-size:11px;color:var(--text-muted);"><?= sanitize($l['student_id_no']) ?></div>
               </div>
             </div>
           </td>

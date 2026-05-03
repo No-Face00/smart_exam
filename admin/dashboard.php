@@ -22,7 +22,7 @@ $stats = $db->query("
 
 // ── Recent cheating flags ──────────────────────────────
 $recentFlags = $db->query("
-    SELECT cf.*, s.full_name, s.roll_number, e.title AS exam_title
+    SELECT cf.*, s.full_name, s.student_id_no, e.title AS exam_title
     FROM cheating_flags cf
     JOIN students s ON s.student_id = cf.student_id
     JOIN exams    e ON e.exam_id    = cf.exam_id
@@ -133,7 +133,7 @@ renderHead('Admin Dashboard');
           <tr>
             <td>
               <div style="font-weight:600;"><?= sanitize($f['full_name']) ?></div>
-              <div style="font-size:11px;color:var(--text-muted);"><?= sanitize($f['roll_number']) ?></div>
+              <div style="font-size:11px;color:var(--text-muted);"><?= sanitize($f['student_id_no']) ?></div>
             </td>
             <td style="font-size:13px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
               <?= sanitize($f['exam_title']) ?>

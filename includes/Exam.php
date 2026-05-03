@@ -1,5 +1,5 @@
 <?php
-// includes/Exam.php — Exam business logic
+// includes/Exam.php — Exam business logic (v2: semester+section access control)
 
 require_once __DIR__ . '/../config/database.php';
 
@@ -10,34 +10,90 @@ class Exam {
         $this->db = Database::getConnection();
     }
 
-    // ── Available exams for a student ──
+    // ── Available exams for a student (semester + section + dept filter) ──
     public function availableForStudent(int $studentId, int $deptId): array {
+        // Get student's current semester and section
+        $stu = $this->db->prepare(
+            "SELECT semester_id, section_id FROM students WHERE student_id = ?"
+        );
+        $stu->execute([$studentId]);
+        $student = $stu->fetch();
+        if (!$student) return [];
+
+        $semId = $student['semester_id'];
+        $secId = $student['section_id'];
+
         $stmt = $this->db->prepare("
             SELECT e.*,
-                   t.full_name     AS teacher_name,
+                   t.full_name    AS teacher_name,
+                   sem.semester_name,
                    ea.attempt_id,
-                   ea.status       AS attempt_status,
+                   ea.status      AS attempt_status,
                    ea.score
             FROM exams e
-            JOIN teachers t ON t.teacher_id = e.teacher_id
+            JOIN teachers  t   ON t.teacher_id   = e.teacher_id
+            LEFT JOIN semesters sem ON sem.semester_id = e.semester_id
+            JOIN exam_sections  es  ON es.exam_id = e.exam_id
             LEFT JOIN exam_attempts ea
                    ON ea.exam_id = e.exam_id AND ea.student_id = :sid
             WHERE e.department_id = :dept
               AND e.status IN ('scheduled','running','completed')
+              AND es.section_id = :sec
+              AND (e.semester_id IS NULL OR e.semester_id = :sem)
+            GROUP BY e.exam_id
             ORDER BY e.scheduled_start DESC
-            LIMIT 20
+            LIMIT 30
         ");
-        $stmt->execute([':sid' => $studentId, ':dept' => $deptId]);
+        $stmt->execute([
+            ':sid'  => $studentId,
+            ':dept' => $deptId,
+            ':sec'  => $secId,
+            ':sem'  => $semId,
+        ]);
         return $stmt->fetchAll();
+    }
+
+    // ── Check if student is allowed to join a specific exam ──
+    public function canStudentJoin(int $examId, int $studentId): array {
+        // Get student's dept, semester, section
+        $stu = $this->db->prepare(
+            "SELECT department_id, semester_id, section_id FROM students WHERE student_id = ?"
+        );
+        $stu->execute([$studentId]);
+        $student = $stu->fetch();
+        if (!$student) return ['ok' => false, 'error' => 'Student not found.'];
+
+        $exam = $this->getById($examId);
+        if (!$exam) return ['ok' => false, 'error' => 'Exam not found.'];
+
+        // Dept check
+        if ($exam['department_id'] != $student['department_id'])
+            return ['ok' => false, 'error' => 'This exam is not for your department.'];
+
+        // Semester check (only if exam has a semester)
+        if ($exam['semester_id'] && $exam['semester_id'] != $student['semester_id'])
+            return ['ok' => false, 'error' => 'This exam is not for your current semester.'];
+
+        // Section check — student's section must be in exam_sections
+        $secCheck = $this->db->prepare(
+            "SELECT 1 FROM exam_sections WHERE exam_id = ? AND section_id = ?"
+        );
+        $secCheck->execute([$examId, $student['section_id']]);
+        if (!$secCheck->fetch())
+            return ['ok' => false, 'error' => 'Your section is not allowed to take this exam.'];
+
+        return ['ok' => true];
     }
 
     // ── Get a single exam by ID ──
     public function getById(int $examId): ?array {
         $stmt = $this->db->prepare("
-            SELECT e.*, t.full_name AS teacher_name, d.dept_name
+            SELECT e.*, t.full_name AS teacher_name, d.dept_name,
+                   sem.semester_name
             FROM exams e
-            JOIN teachers    t ON t.teacher_id   = e.teacher_id
-            JOIN departments d ON d.department_id = e.department_id
+            JOIN teachers    t   ON t.teacher_id   = e.teacher_id
+            JOIN departments d   ON d.department_id = e.department_id
+            LEFT JOIN semesters sem ON sem.semester_id = e.semester_id
             WHERE e.exam_id = ?
         ");
         $stmt->execute([$examId]);
@@ -54,8 +110,12 @@ class Exam {
         return $stmt->fetchAll();
     }
 
-    // ── Start or resume an exam attempt ──
+    // ── Start or resume an exam attempt (with access control) ──
     public function startAttempt(int $examId, int $studentId, string $ip, string $ua): array {
+        // Access control check first
+        $access = $this->canStudentJoin($examId, $studentId);
+        if (!$access['ok']) return $access;
+
         $existing = $this->db->prepare(
             "SELECT * FROM exam_attempts WHERE exam_id = ? AND student_id = ?"
         );
@@ -63,15 +123,12 @@ class Exam {
         $attempt = $existing->fetch();
 
         if ($attempt) {
-            if ($attempt['status'] === 'submitted') {
+            if ($attempt['status'] === 'submitted')
                 return ['ok' => false, 'error' => 'You have already submitted this exam.'];
-            }
             return ['ok' => true, 'attempt_id' => (int)$attempt['attempt_id'], 'resumed' => true];
         }
 
         $exam = $this->getById($examId);
-        if (!$exam) return ['ok' => false, 'error' => 'Exam not found.'];
-
         $now   = new DateTime();
         $start = new DateTime($exam['scheduled_start']);
         $end   = new DateTime($exam['scheduled_end']);
@@ -111,17 +168,14 @@ class Exam {
 
         $earned = 0;
         foreach ($rows as $row) {
-            if ($row['selected_option'] === $row['correct_option']) {
+            if ($row['selected_option'] === $row['correct_option'])
                 $earned += $row['marks'];
-            }
         }
 
         $total    = max(1, (int)$att['total_marks']);
         $score    = round(($earned / $total) * 100, 2);
         $isPassed = $score >= $att['pass_marks'];
-        $startDt  = new DateTime($att['start_time']);
-        $nowDt    = new DateTime();
-        $elapsed  = $nowDt->getTimestamp() - $startDt->getTimestamp();
+        $elapsed  = (new DateTime())->getTimestamp() - (new DateTime($att['start_time']))->getTimestamp();
         $timeTaken = min($elapsed, $att['duration_mins'] * 60);
 
         $this->db->prepare("
@@ -152,11 +206,12 @@ class Exam {
     public function getResult(int $attemptId, int $studentId): ?array {
         $stmt = $this->db->prepare("
             SELECT ea.*, e.title, e.total_marks, e.pass_marks, e.duration_mins,
-                   t.full_name AS teacher_name, d.dept_name
+                   t.full_name AS teacher_name, d.dept_name, sem.semester_name
             FROM exam_attempts ea
-            JOIN exams       e ON e.exam_id     = ea.exam_id
-            JOIN teachers    t ON t.teacher_id  = e.teacher_id
-            JOIN departments d ON d.department_id = e.department_id
+            JOIN exams       e   ON e.exam_id      = ea.exam_id
+            JOIN teachers    t   ON t.teacher_id   = e.teacher_id
+            JOIN departments d   ON d.department_id = e.department_id
+            LEFT JOIN semesters sem ON sem.semester_id = e.semester_id
             WHERE ea.attempt_id = ? AND ea.student_id = ?
         ");
         $stmt->execute([$attemptId, $studentId]);
@@ -177,20 +232,20 @@ class Exam {
         return $attempt;
     }
 
-    // ── Exams by teacher (with attempt_count and flag_count for dashboard) ──
+    // ── Exams by teacher (with attempt_count, flag_count, semester) ──
     public function getByTeacher(int $teacherId): array {
         $stmt = $this->db->prepare("
-            SELECT e.*, d.dept_name,
-                   COUNT(DISTINCT ea.attempt_id)   AS total_attempts,
-                   COUNT(DISTINCT ea.attempt_id)   AS attempt_count,
-                   SUM(ea.status='submitted')       AS submitted,
-                   SUM(ea.is_passed=1)              AS passed,
-                   ROUND(AVG(ea.score),1)           AS avg_score,
-                   COUNT(DISTINCT cf.flag_id)       AS flag_count
+            SELECT e.*, d.dept_name, sem.semester_name,
+                   COUNT(DISTINCT ea.attempt_id) AS attempt_count,
+                   SUM(ea.status='submitted')    AS submitted,
+                   SUM(ea.is_passed=1)           AS passed,
+                   ROUND(AVG(ea.score),1)        AS avg_score,
+                   COUNT(DISTINCT cf.flag_id)    AS flag_count
             FROM exams e
             JOIN departments d ON d.department_id = e.department_id
-            LEFT JOIN exam_attempts  ea ON ea.exam_id = e.exam_id
-            LEFT JOIN cheating_flags cf ON cf.exam_id = e.exam_id
+            LEFT JOIN semesters      sem ON sem.semester_id = e.semester_id
+            LEFT JOIN exam_attempts  ea  ON ea.exam_id = e.exam_id
+            LEFT JOIN cheating_flags cf  ON cf.exam_id = e.exam_id
             WHERE e.teacher_id = ?
             GROUP BY e.exam_id
             ORDER BY e.created_at DESC
@@ -199,7 +254,6 @@ class Exam {
         return $stmt->fetchAll();
     }
 
-    // ── Alias used by teacher pages ──
     public function byTeacher(int $teacherId): array {
         return $this->getByTeacher($teacherId);
     }
@@ -208,13 +262,16 @@ class Exam {
     public function create(array $d): int {
         $stmt = $this->db->prepare("
             INSERT INTO exams
-              (teacher_id, department_id, title, description, total_marks, pass_marks,
-               duration_mins, scheduled_start, scheduled_end, is_randomized, status)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?)
+              (teacher_id, department_id, semester_id, exam_type, title, description,
+               total_marks, pass_marks, duration_mins, scheduled_start, scheduled_end,
+               is_randomized, status)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
         ");
         $stmt->execute([
             $d['teacher_id'],
             $d['department_id'],
+            $d['semester_id'] ?? null,
+            $d['exam_type']   ?? 'quiz',
             $d['title'],
             $d['description'] ?? '',
             $d['total_marks']  ?? 100,
@@ -232,14 +289,16 @@ class Exam {
     public function update(int $examId, array $d): bool {
         $stmt = $this->db->prepare("
             UPDATE exams SET
-              title=?, description=?, total_marks=?, pass_marks=?,
-              duration_mins=?, scheduled_start=?, scheduled_end=?,
-              is_randomized=?, status=?
+              title=?, description=?, exam_type=?, semester_id=?,
+              total_marks=?, pass_marks=?, duration_mins=?,
+              scheduled_start=?, scheduled_end=?, is_randomized=?, status=?
             WHERE exam_id=?
         ");
         return $stmt->execute([
             $d['title'],
             $d['description'] ?? '',
+            $d['exam_type']   ?? 'quiz',
+            $d['semester_id'] ?? null,
             $d['total_marks']  ?? 100,
             $d['pass_marks']   ?? 40,
             $d['duration_mins'],
@@ -257,7 +316,7 @@ class Exam {
                         ->execute([$examId]);
     }
 
-    // ── Add a question to an exam ──
+    // ── Add a question ──
     public function addQuestion(array $d): int {
         $stmt = $this->db->prepare("
             INSERT INTO questions
@@ -293,19 +352,19 @@ class Exam {
         }
     }
 
-    // ── All exams (admin view) ──
+    // ── All exams (admin view, with semester) ──
     public function getAll(): array {
         $stmt = $this->db->query("
-            SELECT e.*, t.full_name AS teacher_name, d.dept_name,
-                   COUNT(DISTINCT ea.attempt_id) AS total_attempts,
+            SELECT e.*, t.full_name AS teacher_name, d.dept_name, sem.semester_name,
                    COUNT(DISTINCT ea.attempt_id) AS attempt_count,
                    SUM(ea.status='submitted')    AS submitted,
                    COUNT(DISTINCT cf.flag_id)    AS flag_count
             FROM exams e
-            JOIN teachers    t ON t.teacher_id   = e.teacher_id
-            JOIN departments d ON d.department_id = e.department_id
-            LEFT JOIN exam_attempts  ea ON ea.exam_id = e.exam_id
-            LEFT JOIN cheating_flags cf ON cf.exam_id = e.exam_id
+            JOIN teachers    t   ON t.teacher_id   = e.teacher_id
+            JOIN departments d   ON d.department_id = e.department_id
+            LEFT JOIN semesters      sem ON sem.semester_id = e.semester_id
+            LEFT JOIN exam_attempts  ea  ON ea.exam_id = e.exam_id
+            LEFT JOIN cheating_flags cf  ON cf.exam_id = e.exam_id
             GROUP BY e.exam_id
             ORDER BY e.created_at DESC
         ");

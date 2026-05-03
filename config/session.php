@@ -5,7 +5,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_set_cookie_params([
         'lifetime' => 0,
         'path'     => '/',
-        'secure'   => false,   // set true on HTTPS
+        'secure'   => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'), // auto-detect HTTPS
         'httponly' => true,
         'samesite' => 'Strict',
     ]);

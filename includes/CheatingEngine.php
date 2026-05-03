@@ -58,7 +58,7 @@ class CheatingEngine {
         if ($risk) { $where[] = 'cf.risk_level = ?'; $params[] = $risk; }
         if ($type) { $where[] = 'cf.flag_type = ?';  $params[] = $type; }
         $sql = "
-            SELECT cf.*, s.full_name, s.roll_number,
+            SELECT cf.*, s.full_name, s.student_id_no,
                    ea.score, ea.time_taken_secs
             FROM cheating_flags cf
             JOIN students     s  ON s.student_id  = cf.student_id
@@ -74,7 +74,7 @@ class CheatingEngine {
     // ── Risk roster (per student aggregated) ──────────────────────
     public function riskRoster(int $examId): array {
         $stmt = $this->db->prepare("
-            SELECT cf.student_id, s.full_name, s.roll_number,
+            SELECT cf.student_id, s.full_name, s.student_id_no,
                    COUNT(*)                            AS total_flags,
                    SUM(cf.risk_level='high')           AS high_flags,
                    SUM(cf.risk_level='medium')         AS medium_flags,
@@ -103,7 +103,7 @@ class CheatingEngine {
             SELECT ea.ip_address,
                    COUNT(DISTINCT ea.student_id)          AS student_count,
                    GROUP_CONCAT(DISTINCT s.full_name ORDER BY s.full_name SEPARATOR ', ') AS names,
-                   GROUP_CONCAT(DISTINCT s.roll_number ORDER BY s.roll_number SEPARATOR ', ') AS rolls,
+                   GROUP_CONCAT(DISTINCT s.student_id_no ORDER BY s.student_id_no SEPARATOR ', ') AS student_ids,
                    MIN(ea.submit_time)                    AS first_submit,
                    MAX(ea.submit_time)                    AS last_submit,
                    TIMESTAMPDIFF(SECOND, MIN(ea.submit_time), MAX(ea.submit_time)) AS span_secs
@@ -121,17 +121,23 @@ class CheatingEngine {
     public function submissionTimeline(int $examId): array {
         $stmt = $this->db->prepare("
             SELECT ea.student_id, ea.submit_time, ea.score, ea.time_taken_secs,
-                   ea.ip_address, s.full_name, s.roll_number,
+                   ea.ip_address, s.full_name, s.student_id_no,
                    TIMESTAMPDIFF(SECOND,
-                     MIN(ea2.submit_time) OVER (), ea.submit_time
+                     (SELECT MIN(ea2.submit_time) FROM exam_attempts ea2
+                      WHERE ea2.exam_id = ? AND ea2.status = 'submitted' AND ea2.submit_time IS NOT NULL),
+                     ea.submit_time
                    ) AS secs_after_first,
-                   RANK() OVER (ORDER BY ea.submit_time) AS submit_rank
+                   (SELECT COUNT(*) FROM exam_attempts ea3
+                    WHERE ea3.exam_id = ? AND ea3.status = 'submitted'
+                      AND ea3.submit_time IS NOT NULL
+                      AND ea3.submit_time <= ea.submit_time
+                   ) AS submit_rank
             FROM exam_attempts ea
             JOIN students s ON s.student_id = ea.student_id
             WHERE ea.exam_id = ? AND ea.status = 'submitted' AND ea.submit_time IS NOT NULL
             ORDER BY ea.submit_time
         ");
-        $stmt->execute([$examId]);
+        $stmt->execute([$examId, $examId, $examId]);
         return $stmt->fetchAll();
     }
 
@@ -141,10 +147,10 @@ class CheatingEngine {
             SELECT
                 ea1.student_id     AS student_a,
                 s1.full_name       AS name_a,
-                s1.roll_number     AS roll_a,
+                s1.student_id_no     AS student_id_no_a,
                 ea2.student_id     AS student_b,
                 s2.full_name       AS name_b,
-                s2.roll_number     AS roll_b,
+                s2.student_id_no     AS student_id_no_b,
                 COUNT(sa1.question_id)                                          AS total_questions,
                 SUM(sa1.selected_option = sa2.selected_option)                 AS matching_answers,
                 SUM(sa1.selected_option = sa2.selected_option
@@ -237,6 +243,7 @@ class CheatingEngine {
             'close_timestamps'     => 'bi-clock-fill',
             'multiple_logins'      => 'bi-person-plus-fill',
             'answer_pattern_match' => 'bi-grid-3x3-gap-fill',
+            'score_time_anomaly'   => 'bi-graph-up-arrow',
             default                => 'bi-flag-fill',
         };
     }
@@ -249,6 +256,7 @@ class CheatingEngine {
             'close_timestamps'     => 'Close Timestamps',
             'multiple_logins'      => 'Multiple Logins',
             'answer_pattern_match' => 'Answer Pattern Match',
+            'score_time_anomaly'   => 'Score-Time Anomaly',
             default                => ucwords(str_replace('_', ' ', $type)),
         };
     }

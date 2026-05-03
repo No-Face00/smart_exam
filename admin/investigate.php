@@ -312,7 +312,7 @@ renderHead('Investigation Hub');
               </div>
               <div>
                 <div style="font-weight:700;"><?= sanitize($r['full_name']) ?></div>
-                <div style="font-size:11px;color:var(--text-muted);"><?= sanitize($r['roll_number']) ?></div>
+                <div style="font-size:11px;color:var(--text-muted);"><?= sanitize($r['student_id_no']) ?></div>
               </div>
             </div>
           </td>
@@ -427,7 +427,7 @@ renderHead('Investigation Hub');
         <tr>
           <td>
             <div style="font-weight:700;"><?= sanitize($f['full_name']) ?></div>
-            <div style="font-size:11px;color:var(--text-muted);"><?= sanitize($f['roll_number']) ?></div>
+            <div style="font-size:11px;color:var(--text-muted);"><?= sanitize($f['student_id_no']) ?></div>
           </td>
           <td>
             <span style="display:inline-flex;align-items:center;gap:7px;font-size:13px;">
@@ -540,7 +540,7 @@ renderHead('Investigation Hub');
             <div>
               <div style="font-weight:700;font-size:14px;">
                 #<?= $t['submit_rank'] ?> — <?= sanitize($t['full_name']) ?>
-                <span style="font-size:11px;color:var(--text-muted);">(<?= sanitize($t['roll_number']) ?>)</span>
+                <span style="font-size:11px;color:var(--text-muted);">(<?= sanitize($t['student_id_no']) ?>)</span>
                 <?php if ($highRisk): ?>
                 <span class="badge-pill risk-high" style="margin-left:6px;font-size:10px;">HIGH RISK</span>
                 <?php elseif ($isFlagged): ?>

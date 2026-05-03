@@ -40,7 +40,7 @@ if ($user['type'] === 'student') { http_response_code(403); echo 'Forbidden'; ex
 // Fetch results
 $results = $db->prepare("
     SELECT
-        s.roll_number,
+        s.student_id_no,
         s.full_name,
         s.email,
         d.dept_name,
@@ -99,7 +99,7 @@ if ($format === 'csv') {
             ? sprintf('%02d:%02d', intdiv($r['time_taken_secs'],60), $r['time_taken_secs']%60)
             : '—';
         fputcsv($out, [
-            $r['roll_number'],
+            $r['student_id_no'],
             $r['full_name'],
             $r['email'],
             $r['dept_name'],
@@ -205,7 +205,7 @@ if ($format === 'pdf') {
         $statusLbl = $r['is_passed'] ? 'Pass' : 'Fail';
         echo '<tr>
           <td style="color:#94A3B8;">' . ($i+1) . '</td>
-          <td style="font-family:monospace;">' . htmlspecialchars($r['roll_number']) . '</td>
+          <td style="font-family:monospace;">' . htmlspecialchars($r['student_id_no']) . '</td>
           <td><strong>' . htmlspecialchars($r['full_name']) . '</strong></td>
           <td><strong>' . round($r['score'] ?? 0,1) . '%</strong></td>
           <td><span class="' . $statusCls . '">' . $statusLbl . '</span></td>

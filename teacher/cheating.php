@@ -31,7 +31,7 @@ if ($examId) {
 
     if ($examInfo) {
         $flagStmt = $db->prepare("
-            SELECT cf.*, s.full_name, s.roll_number, s.email
+            SELECT cf.*, s.full_name, s.student_id_no, s.email
             FROM cheating_flags cf
             JOIN students s ON s.student_id = cf.student_id
             WHERE cf.exam_id = ?
@@ -56,6 +56,7 @@ $flagTypes = [
   'close_timestamps'     => ['bi-clock-fill',        'Close Timestamps'],
   'multiple_logins'      => ['bi-person-plus-fill',  'Multiple Logins'],
   'answer_pattern_match' => ['bi-grid-3x3-gap-fill', 'Answer Pattern'],
+  'score_time_anomaly'   => ['bi-graph-up-arrow',    'Score-Time Anomaly'],
 ];
 
 $flash = getFlash();
@@ -141,7 +142,7 @@ renderHead('Cheating Report');
           <td style="color:var(--text-muted);font-size:12px;"><?= $i+1 ?></td>
           <td>
             <div style="font-weight:700;"><?= sanitize($f['full_name']) ?></div>
-            <div style="font-size:11px;color:var(--text-muted);"><?= sanitize($f['roll_number']) ?></div>
+            <div style="font-size:11px;color:var(--text-muted);"><?= sanitize($f['student_id_no']) ?></div>
           </td>
           <td>
             <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;background:var(--bg);padding:4px 10px;border-radius:6px;">

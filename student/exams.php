@@ -106,13 +106,17 @@ renderHead('My Exams');
           <script>
           (function(){
             const el = document.getElementById('cd-<?= $ex['exam_id'] ?>');
-            const t  = <?= $start ?> * 1000;
+            // Use server-side diff to avoid client timezone issues
+            const secsLeft = <?= max(0, $start - time()) ?>;
+            let remaining = secsLeft;
             function upd() {
-              const d = Math.max(0, t - Date.now());
-              const h = Math.floor(d/3600000), m = Math.floor((d%3600000)/60000), s = Math.floor((d%60000)/1000);
-              el.textContent = h+'h '+m+'m '+s+'s';
-              if (d > 0) setTimeout(upd, 1000);
-              else el.textContent = 'Starting now…';
+              if (remaining <= 0) { el.textContent = 'Starting now…'; location.reload(); return; }
+              const h = Math.floor(remaining/3600);
+              const m = Math.floor((remaining%3600)/60);
+              const s = remaining%60;
+              el.textContent = (h>0?h+'h ':'')+m+'m '+s+'s';
+              remaining--;
+              setTimeout(upd, 1000);
             }
             upd();
           })();

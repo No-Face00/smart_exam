@@ -17,9 +17,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'full_name'     => post('full_name'),
             'email'         => post('email'),
             'password'      => post('password'),
-            'roll_number'   => post('roll_number'),
+            'student_id_no'   => post('student_id_no'),
             'department_id' => (int)post('department_id'),
-            'batch_year'    => (int)post('batch_year'),
+            'semester_name'    => (int)post('semester_name'),
         ]);
         setFlash($result['ok'] ? 'success' : 'danger',
                  $result['ok'] ? 'Student added successfully.' : $result['error']);
@@ -51,7 +51,7 @@ $blockFlt = get('blocked', '');
 $where  = ['1=1'];
 $params = [];
 if ($search) {
-    $where[] = '(s.full_name LIKE ? OR s.email LIKE ? OR s.roll_number LIKE ?)';
+    $where[] = '(s.full_name LIKE ? OR s.email LIKE ? OR s.student_id_no LIKE ?)';
     $params  = array_merge($params, ["%$search%","%$search%","%$search%"]);
 }
 if ($deptFlt) { $where[] = 's.department_id = ?'; $params[] = $deptFlt; }
@@ -60,10 +60,13 @@ $whereSql = implode(' AND ', $where);
 
 $students = $db->prepare("
     SELECT s.*, d.dept_name, d.dept_code,
+           sem.semester_name, sec.section_name,
            COUNT(DISTINCT ea.attempt_id)  AS exam_count,
            COUNT(DISTINCT cf.flag_id)     AS flag_count
     FROM students s
-    JOIN departments d ON d.department_id = s.department_id
+    JOIN departments d   ON d.department_id = s.department_id
+    JOIN semesters   sem ON sem.semester_id = s.semester_id
+    JOIN sections    sec ON sec.section_id  = s.section_id
     LEFT JOIN exam_attempts  ea ON ea.student_id  = s.student_id
     LEFT JOIN cheating_flags cf ON cf.student_id  = s.student_id
     WHERE {$whereSql}
@@ -157,11 +160,11 @@ renderHead('Student Management');
                   </div>
                 </div>
               </td>
-              <td style="font-family:monospace;font-size:13px;"><?= sanitize($s['roll_number']) ?></td>
+              <td style="font-family:monospace;font-size:13px;"><?= sanitize($s['student_id_no']) ?></td>
               <td>
                 <span class="badge-pill badge-info"><?= sanitize($s['dept_code']) ?></span>
               </td>
-              <td><?= $s['batch_year'] ?></td>
+              <td><?= $s['semester_name'] ?></td>
               <td style="text-align:center;"><?= $s['exam_count'] ?></td>
               <td style="text-align:center;">
                 <?php if ($s['flag_count'] > 0): ?>
@@ -230,12 +233,12 @@ renderHead('Student Management');
         </div>
         <div class="form-group">
           <label class="form-label">Roll Number *</label>
-          <input type="text" name="roll_number" class="form-control" placeholder="e.g. CSE-2024-001" required>
+          <input type="text" name="student_id_no" class="form-control" placeholder="e.g. CSE-2024-001" required>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
           <div class="form-group">
             <label class="form-label">Batch Year</label>
-            <input type="number" name="batch_year" class="form-control"
+            <input type="number" name="semester_name" class="form-control"
                    value="<?= date('Y') ?>" min="2000" max="<?= date('Y')+1 ?>">
           </div>
           <div class="form-group">

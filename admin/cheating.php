@@ -49,7 +49,7 @@ if ($examFilter > 0) {
 $whereSql = implode(' AND ', $where);
 
 $flags = $db->prepare("
-    SELECT cf.*, s.full_name, s.roll_number, s.email,
+    SELECT cf.*, s.full_name, s.student_id_no, s.email,
            e.title AS exam_title, e.exam_id,
            a.full_name AS reviewer_name
     FROM cheating_flags cf
@@ -185,7 +185,7 @@ renderHead('Cheating Flags');
           <td style="color:var(--text-muted);font-size:12px;"><?= $i+1 ?></td>
           <td>
             <div style="font-weight:700;"><?= sanitize($f['full_name']) ?></div>
-            <div style="font-size:11px;color:var(--text-muted);"><?= sanitize($f['roll_number']) ?></div>
+            <div style="font-size:11px;color:var(--text-muted);"><?= sanitize($f['student_id_no']) ?></div>
           </td>
           <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;">
             <?= sanitize($f['exam_title']) ?>

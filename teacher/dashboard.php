@@ -30,7 +30,7 @@ $stats = $stats->fetch();
 
 // Recent attempts (live monitoring)
 $liveAttempts = $db->prepare("
-    SELECT ea.*, s.full_name, s.roll_number, e.title AS exam_title, e.duration_mins,
+    SELECT ea.*, s.full_name, s.student_id_no, e.title AS exam_title, e.duration_mins,
            TIMESTAMPDIFF(MINUTE, ea.start_time, NOW()) AS mins_elapsed
     FROM exam_attempts ea
     JOIN students s ON s.student_id = ea.student_id
@@ -141,7 +141,7 @@ renderHead('Teacher Dashboard');
           <tr>
             <td>
               <div style="font-weight:600;"><?= sanitize($l['full_name']) ?></div>
-              <div style="font-size:11px;color:var(--text-muted);"><?= sanitize($l['roll_number']) ?></div>
+              <div style="font-size:11px;color:var(--text-muted);"><?= sanitize($l['student_id_no']) ?></div>
             </td>
             <td style="font-size:13px;"><?= sanitize($l['exam_title']) ?></td>
             <td>
