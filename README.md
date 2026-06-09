@@ -190,12 +190,11 @@ smart_exam/
 │   └── cheating_engine.sql           # Stored procedures + detection views
 │
 └── assets/
-├── css/
-│   ├── main.css                   # Design system: variables, layout, components
-│   └── bootstrap-icons.min.css    # Icon font
-└── js/
-└── main.js                    # Theme toggle, sidebar, table filter, timer, AJAX helpers
-
+    ├── css/
+    │   ├── main.css                   # Design system: variables, layout, components
+    │   └── bootstrap-icons.min.css    # Icon font
+    └── js/
+        └── main.js                    # Theme toggle, sidebar, table filter, timer, AJAX helpers
 ---
 
 ## 🚀 Getting Started
