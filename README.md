@@ -132,6 +132,8 @@ SmartExam's most powerful feature — a multi-check statistical engine that runs
 ---
 
 ## 📁 Project Structure
+
+~~~
 smart_exam/
 ├── index.php                          # Login entry point (role selector)
 ├── register.php                       # Student self-registration
@@ -195,6 +197,8 @@ smart_exam/
     │   └── bootstrap-icons.min.css    # Icon font
     └── js/
         └── main.js                    # Theme toggle, sidebar, table filter, timer, AJAX helpers
+~~~
+
 ---
 
 ## 🚀 Getting Started
@@ -241,7 +245,9 @@ php -S localhost:8000
 ```
 
 **5. Open in browser**
+```
 http://localhost:8000
+```
 
 ---
 
@@ -257,7 +263,7 @@ http://localhost:8000
 
 ## 🗃️ Database Overview
 
-**Core tables (15):**
+**Core tables (12):**
 
 | Table | Purpose |
 |---|---|
